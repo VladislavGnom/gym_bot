@@ -1,10 +1,12 @@
-from aiogram import F, Router
+from aiogram import F, Router, html
+from aiogram.enums import ParseMode
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 
 from keyboards import kb_select_gym, kb_yes_or_not
+from help_func import register_user
 
 
 router = Router()
@@ -23,9 +25,9 @@ def func_checking_data(data):
     f'''
 Проверь свои данные!
 
-Твоё ФИО: {data['full_name']}
-Твой возраст: {data['age']}
-Твой тренажёрный зал: {data['gym']}
+Твоё ФИО: <b>{html.quote(data['full_name'])}</b>
+Твой возраст: <b>{html.quote(data['age'])}</b>
+Твой тренажёрный зал: <b>{html.quote(data['gym'])}</b>
     '''
     return text
 
@@ -104,8 +106,9 @@ async def invalid_select_gym(message: Message):
 
 @router.message(Register.checking_data, F.text.casefold() == "да")
 async def process_checking_data(message: Message, state: FSMContext):
+    data = await state.get_data()
     await state.clear()
-    print(F.text.casefold())
+    register_user(data)
     await message.answer(
         text="Это очень хорошо:) Поздравляю ты успешно зарегистрирован!",
         reply_markup=ReplyKeyboardRemove()
