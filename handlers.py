@@ -32,9 +32,21 @@ def func_checking_data(data):
     return text
 
 
+def get_all_commands():
+    text = \
+    f'''
+/start - <b>{html.quote("запуск бота")}</b>
+/help - <b>{html.quote("помощь по боту")}</b>
+/cancel - <b>{html.quote("выйти из текущего процесса")}</b>
+/add_train - <b>{html.quote("добавить результаты тренировки")}</b>
+/show_progress - <b>{html.quote("показать прогресс за месяц")}</b>
+    '''
+
+    return text
+
 
 @router.message(CommandStart())
-async def start_handler(message: Message, state: FSMContext):
+async def command_start_handler(message: Message, state: FSMContext):
     await state.set_state(Register.full_name)
     await message.answer(
         text=f"Привет {message.from_user.full_name}! Пройди мини регистрацию:)"
@@ -43,6 +55,14 @@ async def start_handler(message: Message, state: FSMContext):
         text=f"Введи своё ФИО"
     )
 
+
+@router.message(Command("cancel"))
+async def command_cancel_handler(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer(
+        text="Ты вышел из текущего процесса",
+        reply_markup=ReplyKeyboardRemove()
+    )
 
 @router.message(Register.full_name)
 async def process_get_full_name(message: Message, state: FSMContext):
@@ -67,7 +87,7 @@ async def process_get_age(message: Message, state: FSMContext):
         is_correct = True if 0 < age < 120 else False
 
         if is_correct:
-            await state.update_data(age=age)
+            await state.update_data(age=str(age))
             await state.set_state(Register.select_gym)
             await message.answer(
                 text="Выбери свой тренажёрный зал",
@@ -85,11 +105,12 @@ async def process_get_age(message: Message, state: FSMContext):
 
 @router.message(Register.select_gym, (F.text.casefold() == "gym sport") | (F.text.casefold() == "s-fitness"))
 async def process_get_select_gym(message: Message, state: FSMContext):
-    await state.update_data(gym=message.text)
+    await state.update_data(gym=message.text, user_id=message.from_user.id)
     data = await state.get_data()
     await state.set_state(Register.checking_data)
     await message.answer(
-        text=func_checking_data(data)
+        text=func_checking_data(data),
+        parse_mode=ParseMode.HTML
     )
     await message.answer(
         text="Всё ли верно?",
@@ -108,12 +129,16 @@ async def invalid_select_gym(message: Message):
 async def process_checking_data(message: Message, state: FSMContext):
     data = await state.get_data()
     await state.clear()
-    register_user(data)
-    await message.answer(
-        text="Это очень хорошо:) Поздравляю ты успешно зарегистрирован!",
-        reply_markup=ReplyKeyboardRemove()
-    )
-
+    if register_user(data):
+        await message.answer(
+            text="Это очень хорошо:) Поздравляю ты успешно зарегистрирован!",
+            reply_markup=ReplyKeyboardRemove()
+        )
+    else:
+        await message.answer(
+            text="Ты уже регистрировался на платформе ранее!",
+            reply_markup=ReplyKeyboardRemove()
+        )
 
 
 @router.message(Register.checking_data, F.text.casefold() == "нет")
@@ -133,5 +158,13 @@ async def process_checking_data(message: Message, state: FSMContext):
 @router.message(Register.checking_data)
 async def invalid_checking_data(message: Message):
     await message.answer(
-        text="Выберите ответ нажав на кнопку на клавиатуре"
+        text="Выбери ответ нажав на кнопку на клавиатуре"
+    )
+
+
+@router.message(Command("help"))
+async def command_help_handler(message: Message):
+    await message.answer(
+        text=get_all_commands(),
+        parse_mode=ParseMode.HTML
     )
