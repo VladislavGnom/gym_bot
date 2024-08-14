@@ -5,8 +5,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 
-from keyboards import kb_select_gym, kb_yes_or_not
-from help_func import register_user
+from keyboards import kb_select_gym, kb_yes_or_not, get_kb_select_trainer
+from help_func import register_user, get_trainers, save_result
 
 
 router = Router()
@@ -63,6 +63,8 @@ async def command_cancel_handler(message: Message, state: FSMContext):
         text="Ты вышел из текущего процесса",
         reply_markup=ReplyKeyboardRemove()
     )
+
+# ------------------------------------------------------------------
 
 @router.message(Register.full_name)
 async def process_get_full_name(message: Message, state: FSMContext):
@@ -161,6 +163,7 @@ async def invalid_checking_data(message: Message):
         text="Выбери ответ нажав на кнопку на клавиатуре"
     )
 
+# ------------------------------------------------------------------
 
 @router.message(Command("help"))
 async def command_help_handler(message: Message):
@@ -168,3 +171,122 @@ async def command_help_handler(message: Message):
         text=get_all_commands(),
         parse_mode=ParseMode.HTML
     )
+
+# ------------------------------------------------------------------
+
+class AddTrain(StatesGroup):
+    select_simulator = State()
+    max_weight = State()
+    count_repeat = State()
+    continue_or_not = State()
+    finish_state = State()
+
+
+@router.message(Command("add_train"))
+async def command_add_train_handler(message: Message, state: FSMContext):
+    await state.set_state(AddTrain.select_simulator)
+    data = get_trainers(message)
+
+    await message.answer(
+        text="Выбери тренажёр для закрепления результата тренировки на нём:",
+        reply_markup=await get_kb_select_trainer(data)
+    )
+
+
+@router.callback_query(F.data.startswith("trainer_"))
+async def add_results_callback_handler(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(call_data=callback.data)
+    await state.set_state(AddTrain.max_weight)
+    await callback.answer("")
+    await callback.message.answer(
+        text="Твой максимально поднятый вес на тренажёре за сегодня?"
+    )
+
+
+@router.message(AddTrain.max_weight)
+async def process_get_max_weight(message: Message, state: FSMContext):
+    try:
+        numb = int((message.text).strip())
+        if numb < 1:
+            await message.answer("Введи корректный вес!")
+        else:
+            if numb > 150:
+                await message.answer("Ух ты! Да ты силач, потрясающе!")
+
+            await state.update_data(max_weight=str(numb), user_id=message.from_user.id)
+            await state.set_state(AddTrain.count_repeat)
+            await message.answer(
+                text="Твоё количество повторений с этим весом?"
+            )
+    except ValueError as error:
+        await message.answer(
+            text="Вы ввели не число! Повторите попытку"
+        )
+
+    
+@router.message(AddTrain.count_repeat)
+async def process_get_count_repeat(message: Message, state: FSMContext):
+    try:
+        numb = int((message.text).strip())
+
+        if numb < 1:
+            await message.answer("Введи корректное количество повторений!")
+        else:
+            if numb > 150:
+                await message.answer("Ух ты какой! Молодец, блестяще!")
+                
+            await state.update_data(count_repeat=str(numb))
+            await state.set_state(AddTrain.continue_or_not)
+            await message.answer(
+                text="ОК, записал! Ты хочешь продолжить записывать результаты?",
+                reply_markup=kb_yes_or_not
+            )
+    except ValueError as error:
+        await message.answer(
+            text="Вы ввели не число! Повторите попытку"
+        )
+
+@router.message(AddTrain.continue_or_not, F.text.casefold() == "да")
+async def process_continue_or_not(message: Message, state: FSMContext):
+    data = await state.get_data()
+    await state.clear()
+
+    if save_result(data):
+        data = get_trainers(message)
+
+        await state.set_state(AddTrain.select_simulator)
+        await message.answer(
+            text="ОК, Выбери тренажёр для закрепления результата тренировки на нём:",
+            reply_markup=await get_kb_select_trainer(data)
+        )
+    else:
+        await message.answer(
+            text="Извини, произошла ошибка! Меня уже принялись чинить, поэтому ожидай",
+            reply_markup=ReplyKeyboardRemove()
+        )
+
+
+@router.message(AddTrain.continue_or_not, F.text.casefold() == "нет")
+async def process_continue_or_not(message: Message, state: FSMContext):
+    data = await state.get_data()
+    await state.clear()
+    if save_result(data):
+        await message.answer(
+            text="ОК, записал твои результаты, будь ещё активней и достигай своих целей!",
+            reply_markup=ReplyKeyboardRemove()
+        )
+    else:
+        await message.answer(
+            text="Извини, произошла ошибка! Меня уже принялись чинить, поэтому ожидай",
+            reply_markup=ReplyKeyboardRemove()
+        )
+
+
+@router.message(AddTrain.continue_or_not)
+async def invalid_continue_or_not(message: Message):
+    await message.answer(
+        text="Ошибка! Нажми на кнопку на клавиатуре"
+    )
+
+# ------------------------------------------------------------------
+
