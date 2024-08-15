@@ -26,6 +26,7 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS workout
                  count_repeat INTEGER,
                  user_id INTEGER,
                  trainer_id INTEGER,
+                 date DATE,
                  FOREIGN KEY (user_id)  REFERENCES users (id)
                  FOREIGN KEY (trainer_id)  REFERENCES gym_sport_table (id) )
             """)
@@ -64,12 +65,40 @@ def get_user_id(user_id):
     return data.fetchone()[0]
 
 
+def get_current_data():
+    from datetime import date
+    current_date = date.today()
+    return current_date
+
+
+def get_trainer(trainer_id):
+    data = cursor.execute(f"SELECT name_trainer FROM gym_sport_table WHERE id = {trainer_id}")
+    return data.fetchone()[0]
+
+
+
 def save_result(data):
     try:
-        param = (data['max_weight'], data['count_repeat'], get_user_id(data['user_id']), get_trainer_id(data['call_data']))
-        cursor.execute("INSERT INTO workout (max_weight, count_repeat, user_id, trainer_id) VALUES (?, ?, ?, ?)", param)
+        param = (data['max_weight'], data['count_repeat'], get_current_data(), get_user_id(data['user_id']), get_trainer_id(data['call_data']))
+        cursor.execute("INSERT INTO workout (max_weight, count_repeat, date, user_id, trainer_id) VALUES (?, ?, ?, ?, ?)", param)
         con.commit()
         return True
     except Exception as error:
         print(error)
         return False
+
+
+def get_data_trainers(user_id, date):
+    print(get_user_id(user_id))
+    data = cursor.execute(f"SELECT max_weight, count_repeat, trainer_id FROM workout WHERE date = '{date}' AND user_id = {get_user_id(user_id)}")
+    return data.fetchall()
+
+
+def output_data_trainers(user_id, date):
+    text = ""
+    data = get_data_trainers(user_id, date)
+    print(f'{data=}')
+    for d in data:
+        text += (f"<b>{get_trainer(d[2])}:</b>\n\n<b>Максимально поднятый вес:</b> {d[0]}кг \n<b>Количество повторений:</b> {d[1]} \n\n-------------------------")
+
+    return text

@@ -5,8 +5,10 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 
+from aiogram_calendar import SimpleCalendar, SimpleCalendarCallback
+
 from keyboards import kb_select_gym, kb_yes_or_not, get_kb_select_trainer
-from help_func import register_user, get_trainers, save_result
+from help_func import register_user, get_trainers, save_result, output_data_trainers
 
 
 router = Router()
@@ -199,7 +201,7 @@ async def add_results_callback_handler(callback: CallbackQuery, state: FSMContex
     await state.set_state(AddTrain.max_weight)
     await callback.answer("")
     await callback.message.answer(
-        text="Твой максимально поднятый вес на тренажёре за сегодня?"
+        text="Твой максимально поднятый вес на тренажёре за сегодня(в кг)?"
     )
 
 
@@ -289,4 +291,34 @@ async def invalid_continue_or_not(message: Message):
     )
 
 # ------------------------------------------------------------------
+
+@router.message(Command("show_progress"))
+async def command_show_progress_handler(message: Message):
+    await message.answer(
+        text="Принял! Выполняю своё обязательство"
+    )
+    await show_calendar(message)
+
+
+async def show_calendar(message: Message):
+    calendar = SimpleCalendar()
+    await message.answer(
+        text="Выбери интересующий тебя день",
+        reply_markup=await calendar.start_calendar()
+    )
+
+
+@router.callback_query(SimpleCalendarCallback.filter())
+async def process_calendar(callback: CallbackQuery, callback_data: SimpleCalendarCallback):
+    selected, date = await SimpleCalendar().process_selection(callback, callback_data)
+    
+    if selected:
+        print(callback.from_user.id, date.date())
+        data = output_data_trainers(callback.from_user.id, date.date())
+        await callback.message.answer(
+            text=f"Твои упражнения сделанные в этот день({date.date()}): \n{data}",
+            parse_mode=ParseMode.HTML
+        )
+    else:
+        ...
 
