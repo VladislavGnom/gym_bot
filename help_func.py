@@ -32,6 +32,14 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS workout
             """)
 
 
+def exist_user(user_id):
+    data = cursor.execute("SELECT id FROM users WHERE user_id=?", (user_id, ))
+    if data:
+        return True
+    else:
+        return False
+
+
 def register_user(data):
     try:
         param = (data['full_name'], data['age'], data['gym'], data['user_id'])
@@ -97,7 +105,6 @@ def get_data_trainers(user_id, date):
 def output_data_trainers(user_id, date):
     text = ""
     data = get_data_trainers(user_id, date)
-    print(f'{data=}')
     for d in data:
         text += (f"<b>{get_trainer(d[2])}:</b>\n\n<b>Максимально поднятый вес:</b> {d[0]}кг \n<b>Количество повторений:</b> {d[1]} \n\n----------------------------\n")
 

@@ -8,7 +8,7 @@ from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram_calendar import SimpleCalendar, SimpleCalendarCallback
 
 from keyboards import kb_select_gym, kb_yes_or_not, get_kb_select_trainer
-from help_func import register_user, get_trainers, save_result, output_data_trainers
+from help_func import register_user, get_trainers, save_result, output_data_trainers, exist_user
 
 
 router = Router()
@@ -186,13 +186,18 @@ class AddTrain(StatesGroup):
 
 @router.message(Command("add_train"))
 async def command_add_train_handler(message: Message, state: FSMContext):
-    await state.set_state(AddTrain.select_simulator)
-    data = get_trainers(message)
+    if exist_user(message.from_user.id):
+        await state.set_state(AddTrain.select_simulator)
+        data = get_trainers(message)
 
-    await message.answer(
-        text="Выбери тренажёр для закрепления результата тренировки на нём:",
-        reply_markup=await get_kb_select_trainer(data)
-    )
+        await message.answer(
+            text="Выбери тренажёр для закрепления результата тренировки на нём:",
+            reply_markup=await get_kb_select_trainer(data)
+        )
+    else:
+        await message.answer(
+            text="Ты ещё не зарегестрирован! Пожалуйста сделай это введя команду /start"
+        )
 
 
 @router.callback_query(F.data.startswith("trainer_"))
@@ -313,12 +318,18 @@ async def process_calendar(callback: CallbackQuery, callback_data: SimpleCalenda
     selected, date = await SimpleCalendar().process_selection(callback, callback_data)
     
     if selected:
-        print(callback.from_user.id, date.date())
         data = output_data_trainers(callback.from_user.id, date.date())
-        await callback.message.answer(
-            text=f"Твои упражнения сделанные в этот день({date.date()}): \n{data}",
-            parse_mode=ParseMode.HTML
-        )
+
+        if data:
+            await callback.message.answer(
+                text=f"Твои упражнения сделанные в этот день({date.date()}): \n{data}",
+                parse_mode=ParseMode.HTML
+            )
+        else:
+            await callback.message.answer(
+                text="<b>В этот день у тебя не было записанных тренировок</b>",
+                parse_mode=ParseMode.HTML
+            )
     else:
         ...
 
