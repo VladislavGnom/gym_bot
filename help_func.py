@@ -99,6 +99,6 @@ def output_data_trainers(user_id, date):
     data = get_data_trainers(user_id, date)
     print(f'{data=}')
     for d in data:
-        text += (f"<b>{get_trainer(d[2])}:</b>\n\n<b>Максимально поднятый вес:</b> {d[0]}кг \n<b>Количество повторений:</b> {d[1]} \n\n-------------------------")
+        text += (f"<b>{get_trainer(d[2])}:</b>\n\n<b>Максимально поднятый вес:</b> {d[0]}кг \n<b>Количество повторений:</b> {d[1]} \n\n----------------------------\n")
 
     return text
