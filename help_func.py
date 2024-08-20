@@ -33,7 +33,7 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS workout
 
 
 def exist_user(user_id):
-    data = cursor.execute("SELECT id FROM users WHERE user_id=?", (user_id, ))
+    data = cursor.execute("SELECT id FROM users WHERE user_id=?", (user_id, )).fetchone()
     if data:
         return True
     else:
